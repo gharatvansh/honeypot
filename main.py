@@ -206,9 +206,13 @@ async def honeypot_endpoint(
         # Build response - include multiple field names for compatibility
         honeypot_reply = result.get("honeypot_response", "")
         response = {
+            "status": "success",
+            "success": True,
             "conversation_id": result.get("conversation_id", conversation_id),
             "timestamp": datetime.utcnow().isoformat() + "Z",
-            "message": message,  # Echo back the message
+            "input_message": message,  # Echo back the message
+            "message": message,  # Alias
+            "scam_detected": analysis.get("is_scam", False),
             "scam_analysis": {
                 "is_scam": analysis.get("is_scam", False),
                 "scam_type": analysis.get("scam_type"),
@@ -218,6 +222,7 @@ async def honeypot_endpoint(
             "extracted_intelligence": intel,
             "honeypot_response": honeypot_reply,
             "response": honeypot_reply,  # Alias for compatibility
+            "agent_response": honeypot_reply,  # Another alias
             "conversation_active": result.get("should_continue", False)
         }
         
@@ -228,15 +233,20 @@ async def honeypot_endpoint(
         error_trace = traceback.format_exc()
         # Return error details for debugging
         return {
+            "status": "error",
+            "success": False,
             "error": error_detail,
             "traceback": error_trace[:500],  # First 500 chars
             "conversation_id": "error",
             "timestamp": datetime.utcnow().isoformat() + "Z",
+            "input_message": "",
             "message": f"Error: {error_detail}",
+            "scam_detected": False,
             "scam_analysis": {"is_scam": False, "scam_type": None, "confidence": 0, "indicators": []},
             "extracted_intelligence": {},
             "honeypot_response": f"Error processing: {error_detail}",
             "response": f"Error processing: {error_detail}",
+            "agent_response": f"Error processing: {error_detail}",
             "conversation_active": False
         }
 
