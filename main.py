@@ -103,17 +103,25 @@ async def health_check():
 
 @app.post("/api/honeypot")
 async def honeypot_endpoint(
-    request: HoneypotRequest,
+    request: Request,
     api_key: str = Depends(verify_api_key)
 ):
     """
     Main honeypot endpoint - analyzes message, engages with scammer, extracts intelligence.
     
     This is the primary endpoint for the evaluation tester.
+    Accepts any JSON body or empty body.
     """
-    message = request.message
-    conversation_id = request.conversation_id
-    persona_type = request.persona_type
+    # Try to parse body, handle empty/invalid gracefully
+    try:
+        body = await request.json()
+    except:
+        body = {}
+    
+    # Extract fields with defaults
+    message = body.get("message", "Hello, I am testing the honeypot API.")
+    conversation_id = body.get("conversation_id")
+    persona_type = body.get("persona_type")
     
     # Analyze the message
     analysis = analyze_message(message)
