@@ -112,45 +112,61 @@ async def honeypot_endpoint(
     This is the primary endpoint for the evaluation tester.
     Accepts any JSON body or empty body.
     """
-    # Try to parse body, handle empty/invalid gracefully
     try:
-        body = await request.json()
-    except:
-        body = {}
-    
-    # Extract fields with defaults
-    message = body.get("message", "Hello, I am testing the honeypot API.")
-    conversation_id = body.get("conversation_id")
-    persona_type = body.get("persona_type")
-    
-    # Analyze the message
-    analysis = analyze_message(message)
-    
-    # Extract intelligence
-    intel = extract_intelligence(message)
-    
-    # If it's a new conversation or no ID provided, start new
-    if conversation_id is None:
-        result = conversation_manager.start_conversation(message, persona_type)
-    else:
-        result = conversation_manager.continue_conversation(conversation_id, message)
-    
-    # Build response
-    response = {
-        "conversation_id": result.get("conversation_id", conversation_id),
-        "timestamp": datetime.utcnow().isoformat() + "Z",
-        "scam_analysis": {
-            "is_scam": analysis.get("is_scam", False),
-            "scam_type": analysis.get("scam_type"),
-            "confidence": analysis.get("confidence", 0),
-            "indicators": analysis.get("indicators", [])
-        },
-        "extracted_intelligence": intel,
-        "honeypot_response": result.get("honeypot_response", ""),
-        "conversation_active": result.get("should_continue", False)
-    }
-    
-    return response
+        # Try to parse body, handle empty/invalid gracefully
+        try:
+            body = await request.json()
+            if not isinstance(body, dict):
+                body = {"message": str(body) if body else "Test message"}
+        except:
+            body = {}
+        
+        # Extract fields with defaults
+        message = body.get("message", "Hello, I am testing the honeypot API.")
+        if not message:
+            message = "Hello, I am testing the honeypot API."
+        conversation_id = body.get("conversation_id")
+        persona_type = body.get("persona_type")
+        
+        # Analyze the message
+        analysis = analyze_message(message)
+        
+        # Extract intelligence
+        intel = extract_intelligence(message)
+        
+        # If it's a new conversation or no ID provided, start new
+        if conversation_id is None:
+            result = conversation_manager.start_conversation(message, persona_type)
+        else:
+            result = conversation_manager.continue_conversation(conversation_id, message)
+        
+        # Build response
+        response = {
+            "conversation_id": result.get("conversation_id", conversation_id),
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "scam_analysis": {
+                "is_scam": analysis.get("is_scam", False),
+                "scam_type": analysis.get("scam_type"),
+                "confidence": analysis.get("confidence", 0),
+                "indicators": analysis.get("indicators", [])
+            },
+            "extracted_intelligence": intel,
+            "honeypot_response": result.get("honeypot_response", ""),
+            "conversation_active": result.get("should_continue", False)
+        }
+        
+        return response
+    except Exception as e:
+        # Return error details for debugging
+        return {
+            "error": str(e),
+            "conversation_id": "error",
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "scam_analysis": {"is_scam": False, "scam_type": None, "confidence": 0, "indicators": []},
+            "extracted_intelligence": {},
+            "honeypot_response": "An error occurred.",
+            "conversation_active": False
+        }
 
 
 # ============== Analysis Endpoint ==============
