@@ -121,10 +121,19 @@ async def honeypot_endpoint(
         except:
             body = {}
         
-        # Extract fields with defaults
+        # Extract fields with defaults - ensure message is always a string
         message = body.get("message", "Hello, I am testing the honeypot API.")
-        if not message:
+        
+        # Handle case where message might be a dict or other type
+        if isinstance(message, dict):
+            # If message is a dict, try to get 'text' or 'content' field, or convert to string
+            message = message.get("text") or message.get("content") or str(message)
+        elif not isinstance(message, str):
+            message = str(message) if message else "Hello, I am testing the honeypot API."
+        
+        if not message or not message.strip():
             message = "Hello, I am testing the honeypot API."
+            
         conversation_id = body.get("conversation_id")
         persona_type = body.get("persona_type")
         
