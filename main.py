@@ -110,17 +110,71 @@ async def honeypot_endpoint(
     Main honeypot endpoint - analyzes message, engages with scammer, extracts intelligence.
     
     This is the primary endpoint for the evaluation tester.
-    Accepts any JSON body or empty body.
+    Accepts any JSON body, form data, text body, or empty body.
     """
+    body = {}
+    
     try:
-        # Try to parse body, handle empty/invalid gracefully
-        try:
-            body = await request.json()
-            if not isinstance(body, dict):
-                body = {"message": str(body) if body else "Test message"}
-        except:
-            body = {}
+        # Get Content-Type header
+        content_type = request.headers.get("content-type", "").lower()
         
+        # Read raw body first
+        raw_body = await request.body()
+        
+        # If body is empty, use default
+        if not raw_body or len(raw_body) == 0:
+            body = {}
+        elif "application/json" in content_type or raw_body.startswith(b'{') or raw_body.startswith(b'['):
+            # Try to parse as JSON
+            import json
+            try:
+                parsed = json.loads(raw_body.decode('utf-8'))
+                if isinstance(parsed, dict):
+                    body = parsed
+                elif isinstance(parsed, str):
+                    body = {"message": parsed}
+                elif isinstance(parsed, list):
+                    # If it's a list, take first item or convert to string
+                    if len(parsed) > 0 and isinstance(parsed[0], str):
+                        body = {"message": parsed[0]}
+                    else:
+                        body = {"message": str(parsed)}
+                else:
+                    body = {"message": str(parsed) if parsed else "Test message"}
+            except json.JSONDecodeError:
+                # If JSON fails, treat as plain text
+                body = {"message": raw_body.decode('utf-8', errors='ignore')}
+        elif "text/" in content_type:
+            # Plain text body
+            body = {"message": raw_body.decode('utf-8', errors='ignore')}
+        elif "application/x-www-form-urlencoded" in content_type:
+            # Form data
+            form_data = await request.form()
+            body = dict(form_data)
+        else:
+            # Unknown content type, try to decode as text
+            try:
+                text = raw_body.decode('utf-8', errors='ignore')
+                if text.strip():
+                    # Check if it looks like JSON
+                    import json
+                    try:
+                        parsed = json.loads(text)
+                        if isinstance(parsed, dict):
+                            body = parsed
+                        else:
+                            body = {"message": str(parsed)}
+                    except:
+                        body = {"message": text}
+                else:
+                    body = {}
+            except:
+                body = {}
+    except Exception as e:
+        # If all parsing fails, use empty body
+        body = {}
+    
+    try:
         # Extract fields with defaults - ensure message is always a string
         message = body.get("message", "Hello, I am testing the honeypot API.")
         
