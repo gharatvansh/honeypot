@@ -160,16 +160,20 @@ async def honeypot_endpoint(
         
         return response
     except Exception as e:
+        import traceback
+        error_detail = f"{type(e).__name__}: {str(e)}"
+        error_trace = traceback.format_exc()
         # Return error details for debugging
         return {
-            "error": str(e),
+            "error": error_detail,
+            "traceback": error_trace[:500],  # First 500 chars
             "conversation_id": "error",
             "timestamp": datetime.utcnow().isoformat() + "Z",
-            "message": "Error processing request",
+            "message": f"Error: {error_detail}",
             "scam_analysis": {"is_scam": False, "scam_type": None, "confidence": 0, "indicators": []},
             "extracted_intelligence": {},
-            "honeypot_response": "An error occurred.",
-            "response": "An error occurred.",
+            "honeypot_response": f"Error processing: {error_detail}",
+            "response": f"Error processing: {error_detail}",
             "conversation_active": False
         }
 
