@@ -64,7 +64,7 @@ class SimulateRequest(BaseModel):
 
 class HoneypotRequest(BaseModel):
     """Main honeypot request model."""
-    message: str
+    message: Optional[str] = "Hello, I am testing the honeypot API."
     conversation_id: Optional[str] = None
     persona_type: Optional[str] = None
 
