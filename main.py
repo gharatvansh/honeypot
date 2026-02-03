@@ -140,10 +140,12 @@ async def honeypot_endpoint(
         else:
             result = conversation_manager.continue_conversation(conversation_id, message)
         
-        # Build response
+        # Build response - include multiple field names for compatibility
+        honeypot_reply = result.get("honeypot_response", "")
         response = {
             "conversation_id": result.get("conversation_id", conversation_id),
             "timestamp": datetime.utcnow().isoformat() + "Z",
+            "message": message,  # Echo back the message
             "scam_analysis": {
                 "is_scam": analysis.get("is_scam", False),
                 "scam_type": analysis.get("scam_type"),
@@ -151,7 +153,8 @@ async def honeypot_endpoint(
                 "indicators": analysis.get("indicators", [])
             },
             "extracted_intelligence": intel,
-            "honeypot_response": result.get("honeypot_response", ""),
+            "honeypot_response": honeypot_reply,
+            "response": honeypot_reply,  # Alias for compatibility
             "conversation_active": result.get("should_continue", False)
         }
         
@@ -162,9 +165,11 @@ async def honeypot_endpoint(
             "error": str(e),
             "conversation_id": "error",
             "timestamp": datetime.utcnow().isoformat() + "Z",
+            "message": "Error processing request",
             "scam_analysis": {"is_scam": False, "scam_type": None, "confidence": 0, "indicators": []},
             "extracted_intelligence": {},
             "honeypot_response": "An error occurred.",
+            "response": "An error occurred.",
             "conversation_active": False
         }
 
