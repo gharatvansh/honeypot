@@ -210,8 +210,8 @@ async def honeypot_endpoint(
             "success": True,
             "conversation_id": result.get("conversation_id", conversation_id),
             "timestamp": datetime.utcnow().isoformat() + "Z",
-            "input_message": message,  # Echo back the message
-            "message": message,  # Alias
+            "input_message": message,  # Original scam message received
+            "message": honeypot_reply,  # Honeypot's engaging response
             "scam_detected": analysis.get("is_scam", False),
             "scam_analysis": {
                 "is_scam": analysis.get("is_scam", False),
