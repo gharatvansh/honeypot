@@ -29,7 +29,7 @@ API_KEY = os.getenv("API_KEY", "honeypot-secret-key-2024")
 app = FastAPI(
     title="Agentic Honeypot API",
     description="Autonomous AI honeypot system for scam detection and intelligence extraction",
-    version="1.0.0"
+    version="1.0.1"
 )
 
 # Add CORS middleware
