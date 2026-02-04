@@ -94,17 +94,14 @@ class HoneypotRequest(BaseModel):
 # ============== Authentication ==============
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
-    """Verify the API key from request headers."""
+    """Verify the API key from request headers. Now optional - accepts any request."""
     if x_api_key is None:
-        raise HTTPException(
-            status_code=401,
-            detail="Missing API key. Provide X-API-Key header."
-        )
+        print("[AUTH] No API key provided - allowing request anyway")
+        return None
     if x_api_key != API_KEY:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid API key"
-        )
+        print(f"[AUTH] Invalid API key provided: {x_api_key[:10]}... - allowing request anyway")
+        return None
+    print("[AUTH] Valid API key")
     return x_api_key
 
 
@@ -165,7 +162,8 @@ async def honeypot_get(request: Request):
 @app.post("/")
 @app.post("/api/honeypot")
 async def honeypot_endpoint(
-    request: Request
+    request: Request,
+    api_key: Optional[str] = Depends(verify_api_key)
 ):
     """
     Main honeypot endpoint - analyzes message, engages with scammer, extracts intelligence.
