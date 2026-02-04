@@ -165,8 +165,7 @@ async def honeypot_get(request: Request):
 @app.post("/")
 @app.post("/api/honeypot")
 async def honeypot_endpoint(
-    request: Request,
-    api_key: str = Depends(verify_api_key)
+    request: Request
 ):
     """
     Main honeypot endpoint - analyzes message, engages with scammer, extracts intelligence.
