@@ -123,10 +123,10 @@ async def health_check():
 
 # ============== Main Honeypot Endpoint ==============
 
-@app.get("/api/honeypot")
+@app.api_route("/api/honeypot", methods=["GET", "HEAD"])
 async def honeypot_get(request: Request):
     """
-    Handle GET requests to honeypot endpoint.
+    Handle GET/HEAD requests to honeypot endpoint.
     Some testers check this to verify the endpoint exists.
     Returns a valid honeypot response structure to pass schema validation.
     """
@@ -465,7 +465,7 @@ async def get_random_scam(api_key: str = Depends(verify_api_key)):
 
 # ============== Serve Streamlit Info ==============
 
-@app.get("/")
+@app.api_route("/", methods=["GET", "HEAD"])
 async def root():
     """Root endpoint with API information."""
     return {
