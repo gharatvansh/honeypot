@@ -126,7 +126,13 @@ async def honeypot_get(request: Request):
             "confidence": 0,
             "indicators": []
         },
-        "extracted_intelligence": {},
+        "extracted_intelligence": {
+            "bank_accounts": [],
+            "upi_ids": [],
+            "phishing_links": [],
+            "phone_numbers": [],
+            "emails": []
+        },
         "honeypot_response": "Honeypot is active.",
         "response": "Honeypot is active.",
         "agent_response": "Honeypot is active.",
@@ -305,7 +311,13 @@ async def honeypot_endpoint(
             "message": f"Error: {error_detail}",
             "scam_detected": False,
             "scam_analysis": {"is_scam": False, "scam_type": None, "confidence": 0, "indicators": []},
-            "extracted_intelligence": {},
+            "extracted_intelligence": {
+                "bank_accounts": [],
+                "upi_ids": [],
+                "phishing_links": [],
+                "phone_numbers": [],
+                "emails": []
+            },
             "honeypot_response": f"Error processing: {error_detail}",
             "response": f"Error processing: {error_detail}",
             "agent_response": f"Error processing: {error_detail}",
