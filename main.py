@@ -204,7 +204,12 @@ async def honeypot_endpoint(
             result = conversation_manager.continue_conversation(conversation_id, message)
             # If conversation not found (e.g., server restarted), start a new one
             if "error" in result:
-                result = conversation_manager.start_conversation(message, persona_type)
+                # RECOVERY: Use the SAME conversation_id the client provided
+                result = conversation_manager.start_conversation(
+                    initial_message=message, 
+                    persona_type=persona_type,
+                    forced_conversation_id=conversation_id
+                )
         
         # Build response - include multiple field names for compatibility
         honeypot_reply = result.get("honeypot_response", "")

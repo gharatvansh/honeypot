@@ -69,7 +69,8 @@ class ConversationManager:
     def start_conversation(
         self, 
         initial_message: str,
-        persona_type: Optional[str] = None
+        persona_type: Optional[str] = None,
+        forced_conversation_id: Optional[str] = None
     ) -> Dict:
         """
         Start a new honeypot conversation.
@@ -77,12 +78,13 @@ class ConversationManager:
         Args:
             initial_message: The scammer's initial message
             persona_type: Optional persona type for the honeypot
+            forced_conversation_id: Optional ID to force for this conversation (for recovery)
             
         Returns:
             Dictionary with conversation info and honeypot response
         """
         # Create conversation
-        conv_id = str(uuid.uuid4())
+        conv_id = forced_conversation_id if forced_conversation_id else str(uuid.uuid4())
         now = datetime.utcnow().isoformat() + "Z"
         
         conversation = Conversation(
