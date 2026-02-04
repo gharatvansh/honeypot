@@ -101,6 +101,20 @@ async def health_check():
 
 # ============== Main Honeypot Endpoint ==============
 
+@app.get("/api/honeypot")
+async def honeypot_get(request: Request):
+    """
+    Handle GET requests to honeypot endpoint.
+    Some testers check this to verify the endpoint exists.
+    """
+    return {
+        "status": "success",
+        "message": "Honeypot endpoint is active. proper usage: POST with JSON body.",
+        "service": "Agentic Honeypot API",
+        "timestamp": datetime.utcnow().isoformat() + "Z"
+    }
+
+
 @app.post("/api/honeypot")
 async def honeypot_endpoint(
     request: Request,
