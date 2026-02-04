@@ -138,7 +138,7 @@ async def honeypot_get(request: Request):
         "status": "success",
         "success": True,
         "conversation_id": dummy_id,
-        "timestamp": now,
+        "timestamp": now.split(".")[0] + "Z",
         "input_message": "GET_CHECK",
         "message": "Honeypot is active.",
         "scam_detected": False,
@@ -297,7 +297,7 @@ async def honeypot_endpoint(
             "status": "success",
             "success": True,
             "conversation_id": result.get("conversation_id", conversation_id),
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
             "input_message": message,  # Original scam message received
             "message": honeypot_reply,  # Honeypot's engaging response
             "scam_detected": analysis.get("is_scam", False),
@@ -329,7 +329,7 @@ async def honeypot_endpoint(
             "error": error_detail,
             "traceback": error_trace[:500],  # First 500 chars
             "conversation_id": "error",
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
             "input_message": "",
             "message": f"Error: {error_detail}",
             "scam_detected": False,
