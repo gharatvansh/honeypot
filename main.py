@@ -112,6 +112,10 @@ async def honeypot_endpoint(
     This is the primary endpoint for the evaluation tester.
     Accepts any JSON body, form data, text body, or empty body.
     """
+    # DEBUG LOGGING
+    print(f"[{datetime.utcnow().isoformat()}] INCOME REQUEST to /api/honeypot")
+    print(f"Headers: {request.headers}")
+    
     body = {}
     
     try:
@@ -120,10 +124,12 @@ async def honeypot_endpoint(
         
         # Read raw body first
         raw_body = await request.body()
+        print(f"Raw Body ({len(raw_body)} bytes): {raw_body.decode('utf-8', errors='ignore')[:1000]}")
         
         # If body is empty, use default
         if not raw_body or len(raw_body) == 0:
             body = {}
+            print("Body is empty")
         elif "application/json" in content_type or raw_body.startswith(b'{') or raw_body.startswith(b'['):
             # Try to parse as JSON
             import json
@@ -141,16 +147,20 @@ async def honeypot_endpoint(
                         body = {"message": str(parsed)}
                 else:
                     body = {"message": str(parsed) if parsed else "Test message"}
-            except json.JSONDecodeError:
+                print(f"Parsed JSON body: {body}")
+            except json.JSONDecodeError as e:
+                print(f"JSON Parse Error: {e}")
                 # If JSON fails, treat as plain text
                 body = {"message": raw_body.decode('utf-8', errors='ignore')}
         elif "text/" in content_type:
             # Plain text body
             body = {"message": raw_body.decode('utf-8', errors='ignore')}
+            print("Parsed as text body")
         elif "application/x-www-form-urlencoded" in content_type:
             # Form data
             form_data = await request.form()
             body = dict(form_data)
+            print(f"Parsed Form Data: {body}")
         else:
             # Unknown content type, try to decode as text
             try:
@@ -168,9 +178,14 @@ async def honeypot_endpoint(
                         body = {"message": text}
                 else:
                     body = {}
-            except:
+                print(f"Fallback parsing result: {body}")
+            except Exception as e:
+                print(f"Fallback parsing failed: {e}")
                 body = {}
     except Exception as e:
+        print(f"CRITICAL ERROR in body parsing: {e}")
+        import traceback
+        traceback.print_exc()
         # If all parsing fails, use empty body
         body = {}
     
@@ -191,6 +206,8 @@ async def honeypot_endpoint(
         conversation_id = body.get("conversation_id")
         persona_type = body.get("persona_type")
         
+        print(f"Processing message: {message[:50]}... | ID: {conversation_id}")
+        
         # Analyze the message
         analysis = analyze_message(message)
         
@@ -205,6 +222,7 @@ async def honeypot_endpoint(
             # If conversation not found (e.g., server restarted), start a new one
             if "error" in result:
                 # RECOVERY: Use the SAME conversation_id the client provided
+                print(f"Recovering conversation {conversation_id}")
                 result = conversation_manager.start_conversation(
                     initial_message=message, 
                     persona_type=persona_type,
@@ -234,12 +252,15 @@ async def honeypot_endpoint(
             "conversation_active": result.get("should_continue", False)
         }
         
+        print(f"Sending success response for ID: {response['conversation_id']}")
         return response
     except Exception as e:
+        print(f"CRITICAL ERROR in standard processing: {e}")
         import traceback
+        traceback.print_exc()
         error_detail = f"{type(e).__name__}: {str(e)}"
         error_trace = traceback.format_exc()
-        # Return error details for debugging
+        # Return error details for debugging - BUT RETURN 200 OK to avoid "Invalid Body" error
         return {
             "status": "error",
             "success": False,
