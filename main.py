@@ -41,6 +41,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# === GLOBAL LOGGING MIDDLEWARE ===
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    import time
+    start_time = time.time()
+    
+    # Generate request ID
+    import uuid
+    request_id = str(uuid.uuid4())[:8]
+    
+    print(f"[{request_id}] -> {request.method} {request.url}")
+    print(f"[{request_id}] Headers: {request.headers}")
+    
+    try:
+        response = await call_next(request)
+        process_time = (time.time() - start_time) * 1000
+        print(f"[{request_id}] <- {response.status_code} (took {process_time:.2f}ms)")
+        return response
+    except Exception as e:
+        print(f"[{request_id}] !!! EXCEPTION: {e}")
+        raise e
+
 
 # ============== Pydantic Models ==============
 
