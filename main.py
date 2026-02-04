@@ -94,14 +94,17 @@ class HoneypotRequest(BaseModel):
 # ============== Authentication ==============
 
 async def verify_api_key(x_api_key: Optional[str] = Header(None)):
-    """Verify the API key from request headers. Now optional - accepts any request."""
+    """Verify the API key from request headers."""
     if x_api_key is None:
-        print("[AUTH] No API key provided - allowing request anyway")
-        return None
+        raise HTTPException(
+            status_code=401,
+            detail="Missing API key. Provide X-API-Key header."
+        )
     if x_api_key != API_KEY:
-        print(f"[AUTH] Invalid API key provided: {x_api_key[:10]}... - allowing request anyway")
-        return None
-    print("[AUTH] Valid API key")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key"
+        )
     return x_api_key
 
 
