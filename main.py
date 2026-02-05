@@ -4,7 +4,7 @@ FastAPI server for scam detection and intelligence extraction.
 """
 
 import os
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from datetime import datetime
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, Header, Request
@@ -21,6 +21,11 @@ from src.detection import analyze_message
 from src.extraction import extract_intelligence
 from src.conversation_manager import conversation_manager
 from src.mock import get_random_scam_message
+from src.guvi_callback import (
+    extract_suspicious_keywords,
+    generate_agent_notes,
+    send_final_result_callback
+)
 
 # Get API key from environment
 API_KEY = os.getenv("API_KEY", "honeypot-secret-key-2024")
@@ -84,8 +89,24 @@ class SimulateRequest(BaseModel):
     persona_type: Optional[str] = None
 
 
-class HoneypotRequest(BaseModel):
-    """Main honeypot request model."""
+# New format models (Problem Statement 2 specification)
+class MessageBody(BaseModel):
+    """Message body with sender, text, and timestamp."""
+    sender: str  # "scammer" or "user"
+    text: str    # Message content
+    timestamp: int  # Epoch time in ms
+
+
+class MetadataBody(BaseModel):
+    """Metadata for channel, language, and locale."""
+    channel: Optional[str] = "SMS"  # SMS/WhatsApp/Email/Chat
+    language: Optional[str] = "English"
+    locale: Optional[str] = "IN"
+
+
+# Legacy format request model
+class HoneypotRequestLegacy(BaseModel):
+    """Legacy honeypot request model for backwards compatibility."""
     message: Optional[str] = "Hello, I am testing the honeypot API."
     conversation_id: Optional[str] = None
     persona_type: Optional[str] = None
@@ -252,22 +273,46 @@ async def honeypot_endpoint(
         body = {}
     
     try:
-        # Extract fields with defaults - ensure message is always a string
-        message = body.get("message", "Hello, I am testing the honeypot API.")
+        # Detect new format (has sessionId and message object) vs legacy format
+        session_id = body.get("sessionId")
+        message_obj = body.get("message")
+        conversation_history = body.get("conversationHistory", [])
+        metadata = body.get("metadata", {})
         
-        # Handle case where message might be a dict or other type
-        if isinstance(message, dict):
-            # If message is a dict, try to get 'text' or 'content' field, or convert to string
-            message = message.get("text") or message.get("content") or str(message)
-        elif not isinstance(message, str):
-            message = str(message) if message else "Hello, I am testing the honeypot API."
+        # New format: {sessionId, message: {sender, text, timestamp}, conversationHistory, metadata}
+        if session_id and isinstance(message_obj, dict) and "text" in message_obj:
+            print(f"[NEW FORMAT] sessionId={session_id}")
+            message = message_obj.get("text", "").strip()
+            sender = message_obj.get("sender", "scammer")
+            timestamp = message_obj.get("timestamp", 0)
+            conversation_id = session_id
+            persona_type = None  # Not in new format
+            
+            # Extract channel, language, locale from metadata
+            channel = metadata.get("channel", "SMS") if isinstance(metadata, dict) else "SMS"
+            language = metadata.get("language", "English") if isinstance(metadata, dict) else "English"
+            locale = metadata.get("locale", "IN") if isinstance(metadata, dict) else "IN"
+            
+            print(f"  Sender: {sender}, Channel: {channel}, Lang: {language}, Locale: {locale}")
+            print(f"  History length: {len(conversation_history)}")
+        else:
+            # Legacy format: {message, conversation_id, persona_type}
+            print("[LEGACY FORMAT]")
+            message = body.get("message", "Hello, I am testing the honeypot API.")
+            
+            # Handle case where message might be a dict or other type
+            if isinstance(message, dict):
+                # If message is a dict, try to get 'text' or 'content' field, or convert to string
+                message = message.get("text") or message.get("content") or str(message)
+            elif not isinstance(message, str):
+                message = str(message) if message else "Hello, I am testing the honeypot API."
+            
+            conversation_id = body.get("conversation_id")
+            persona_type = body.get("persona_type")
         
         if not message or not message.strip():
             message = "Hello, I am testing the honeypot API."
             
-        conversation_id = body.get("conversation_id")
-        persona_type = body.get("persona_type")
-        
         print(f"Processing message: {message[:50]}... | ID: {conversation_id}")
         
         # Analyze the message
@@ -293,14 +338,37 @@ async def honeypot_endpoint(
         
         # Build response - include multiple field names for compatibility
         honeypot_reply = result.get("honeypot_response", "")
+        
+        # Extract suspicious keywords from the message
+        suspicious_keywords = extract_suspicious_keywords(message)
+        
+        # Get message count for this session
+        conversation = conversation_manager.get_conversation(result.get("conversation_id", conversation_id))
+        message_count = conversation.get("message_count", 1) if conversation else 1
+        
+        # Add suspicious keywords to intel
+        intel_with_keywords = dict(intel)  # Copy the original intel
+        intel_with_keywords["suspiciousKeywords"] = suspicious_keywords
+        
+        # Generate agent notes
+        agent_notes = generate_agent_notes(
+            analysis.get("scam_type"),
+            intel,
+            message_count,
+            suspicious_keywords
+        )
+        
         response = {
             "status": "success",
             "success": True,
+            "sessionId": conversation_id,  # New field for new format
             "conversation_id": result.get("conversation_id", conversation_id),
             "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
             "input_message": message,  # Original scam message received
             "message": honeypot_reply,  # Honeypot's engaging response
+            "reply": honeypot_reply,  # Human-like response (as per spec Section 8)
             "scam_detected": analysis.get("is_scam", False),
+            "scamDetected": analysis.get("is_scam", False),  # Alias for new format
             "scam_analysis": {
                 "is_scam": analysis.get("is_scam", False),
                 "scam_type": analysis.get("scam_type"),
@@ -308,11 +376,44 @@ async def honeypot_endpoint(
                 "indicators": analysis.get("indicators", [])
             },
             "extracted_intelligence": intel,
+            "extractedIntelligence": intel_with_keywords,  # With suspicious keywords
             "honeypot_response": honeypot_reply,
             "response": honeypot_reply,  # Alias for compatibility
             "agent_response": honeypot_reply,  # Another alias
+            "agentNotes": agent_notes,
+            "totalMessagesExchanged": message_count,
             "conversation_active": result.get("should_continue", False)
         }
+        
+        # Send callback to GUVI if scam detected and conversation is ending
+        is_scam = analysis.get("is_scam", False)
+        should_continue = result.get("should_continue", False)
+        
+        # Trigger callback when: scam detected AND (conversation ending OR we have good intelligence)
+        has_intel = bool(
+            intel.get("bank_accounts") or 
+            intel.get("upi_ids") or 
+            intel.get("phishing_links") or
+            intel.get("phone_numbers")
+        )
+        
+        if is_scam and (not should_continue or has_intel):
+            try:
+                # Fire and forget the callback (async)
+                import asyncio
+                callback_result = await send_final_result_callback(
+                    session_id=conversation_id or result.get("conversation_id"),
+                    scam_detected=is_scam,
+                    total_messages=message_count,
+                    extracted_intelligence=intel,
+                    suspicious_keywords=suspicious_keywords,
+                    agent_notes=agent_notes
+                )
+                response["callback_sent"] = callback_result.get("success", False)
+                print(f"[CALLBACK] Result: {callback_result}")
+            except Exception as cb_error:
+                print(f"[CALLBACK] Error sending callback: {cb_error}")
+                response["callback_sent"] = False
         
         print(f"Sending success response for ID: {response['conversation_id']}")
         return response
