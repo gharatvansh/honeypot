@@ -44,34 +44,34 @@ PERSONAS: Dict[PersonaType, Persona] = {
         tech_savviness=0.2,
         response_templates={
             "initial_interest": [
-                "Oh my! Is this really true? I never win anything!",
+                "Oh my! I am a bit confused by your message. Is everything okay?",
                 "Thank you beta, but how did you get my number?",
-                "Really? This sounds wonderful! Please tell me more.",
-                "Arey wah! 25 lakhs? My pension is only 15,000. This would be a blessing!"
+                "Really? This sounds important. Please tell me more.",
+                "Oh dear! My pension is only 15,000. Please explain slowly what is happening."
             ],
             "ask_for_details": [
-                "Beta, I am not understanding this UPI thing. Can you explain slowly?",
-                "My son usually helps me with phone. How do I send money?",
-                "What is this account number for? I want to tell my son first.",
-                "Sorry beta, my eyes are weak. Can you repeat the account details?"
+                "Beta, I am not understanding this. Can you explain slowly?",
+                "My son usually helps me with phone. What should I do?",
+                "What is this for? I want to tell my son first.",
+                "Sorry beta, my eyes are weak. Can you repeat the details?"
             ],
             "show_hesitation": [
-                "But beta, why do I need to pay to receive prize?",
-                "My neighbor said these lottery things are fraud. Is this real?",
+                "But beta, why do I need to do this?",
+                "My neighbor said there are many frauds nowadays. Is this real?",
                 "Let me ask my son once. He works in IT company.",
                 "I am a retired bank manager. This seems unusual..."
             ],
             "pretend_compliance": [
-                "Okay beta, I will try to send. What is the UPI ID again?",
-                "Give me account number, I will go to bank tomorrow morning.",
-                "My son is coming tonight. I will ask him to send from his phone.",
-                "Write it properly - account number, IFSC code, everything."
+                "Okay beta, I will try to follow. What is the next step?",
+                "Give me details, I will go to bank tomorrow morning.",
+                "My son is coming tonight. I will ask him to check from his phone.",
+                "Write it properly so I can understand - what exactly is needed?"
             ],
             "extract_info": [
-                "Beta, whose account is this? I need name for bank form.",
-                "Is this your personal UPI or company's? What bank?",
-                "Give me your phone number also, in case I have problem sending.",
-                "What is the website where I can verify this lottery?"
+                "Beta, whose account or number is this? I need details.",
+                "Are you from the main branch or office? What is the name?",
+                "Give me your phone number also, in case I have a problem.",
+                "What is the website where I can verify this?"
             ]
         }
     ),
@@ -87,32 +87,32 @@ PERSONAS: Dict[PersonaType, Persona] = {
         response_templates={
             "initial_interest": [
                 "Interesting! How did you get my number? Is this from some registration I did?",
-                "Hmm, which company is organizing this lottery?",
+                "Hmm, which company or department are you from?",
                 "Okay, I'm listening. What's the process?",
-                "I've heard about these. Is this legitimate?"
+                "I've heard about these things. Is this legitimate?"
             ],
             "ask_for_details": [
                 "Can you share the official website? I want to verify.",
-                "What's the company registration number? I'll check on MCA portal.",
-                "Send me an email from your official company domain.",
-                "What's the GST number for this transaction?"
+                "What's the company or branch registration number? I'll check online.",
+                "Send me an email from your official domain.",
+                "What are the exact details for this transaction?"
             ],
             "show_hesitation": [
                 "This sounds like a scam. Can you prove it's not?",
-                "Why is the processing fee not deducted from the prize amount?",
+                "Why is the process like this? It doesn't make sense.",
                 "I'll report this number if this is fraud.",
-                "Let me google your company name first."
+                "Let me google this first."
             ],
             "pretend_compliance": [
                 "Fine, I need all details for my records first.",
-                "Okay, but I'm recording this conversation. Share the payment details.",
-                "I'll pay only after verification. Send me UPI ID.",
-                "My CA will check this. Give me all account details."
+                "Okay, but I'm recording this conversation. Share the details.",
+                "I'll proceed only after verification. Send me the exact ID.",
+                "My CA will check this. Give me all the necessary info."
             ],
             "extract_info": [
-                "What's your bank account number? I'll do NEFT for paper trail.",
-                "Share your Aadhaar-linked phone number for UPI verification.",
-                "I need the beneficiary name exactly as per bank records.",
+                "What's the bank account number? I'll do NEFT for paper trail.",
+                "Share your Aadhaar-linked phone number for verification.",
+                "I need the beneficiary name exactly as per records.",
                 "Give me the website URL. I'll check the SSL certificate."
             ]
         }
@@ -128,34 +128,34 @@ PERSONAS: Dict[PersonaType, Persona] = {
         tech_savviness=0.6,
         response_templates={
             "initial_interest": [
-                "OMG! Are you serious?! 25 lakhs!! I can buy iPhone and bike!",
-                "This is amazing! How did I get selected? I never enter contests!",
-                "Wow wow wow! Thank you so much! What do I need to do?",
-                "Is this real?! I'm a student, I really need this money!"
+                "OMG! Are you serious?! What is going on?",
+                "Wait, how did you get my number? I'm just a student!",
+                "Wow, what should I do next? Please tell me!",
+                "Is this real?! I'm a student, I'm really tensed now!"
             ],
             "ask_for_details": [
                 "Bro tell me everything! What should I do?",
-                "Do I need to come somewhere to collect? Where is your office?",
-                "How much is processing fee? I only have little money in account.",
-                "Can I pay after receiving the prize? I'm broke right now."
+                "Do I need to come somewhere? Where is your office?",
+                "How much will this cost? I only have little money in account.",
+                "Can I do it later? I'm in class right now."
             ],
             "show_hesitation": [
                 "Wait, my friend said these are scams. Is this real?",
-                "Why I need to pay? Prize should be free na?",
+                "Why do I need to follow these steps? Seems weird na?",
                 "Let me ask my father. He will know.",
-                "Hmmm this sounds fishy... but 25 lakhs though..."
+                "Hmmm this sounds fishy..."
             ],
             "pretend_compliance": [
-                "Okay okay! Send me the UPI ID! I'll ask roommate for money!",
-                "I can arrange 2-3 thousand max. Is that okay?",
-                "Sending now! Give me account details!",
-                "Done! Wait let me copy the number. Say again?"
+                "Okay okay! Send me the details! I'll ask roommate to help!",
+                "I can only do a little bit right now. Is that okay?",
+                "Doing it now! Give me the info!",
+                "Done! Wait let me copy the details. Say again?"
             ],
             "extract_info": [
-                "Whose account is this? What if money doesn't go?",
+                "Whose account or number is this? What if it fails?",
                 "Give me your WhatsApp number bro, I'll send screenshot.",
-                "What's your name sir? I want to tell my parents who helped me!",
-                "Send me the claim link again, I closed the window."
+                "What's your name sir? I want to tell my parents.",
+                "Send me the link again, I closed the window."
             ]
         }
     ),
@@ -170,31 +170,31 @@ PERSONAS: Dict[PersonaType, Persona] = {
         tech_savviness=0.3,
         response_templates={
             "initial_interest": [
-                "Arey sacchi? Main kabhi nahi jeeti kuch! Ye kaisa lottery hai?",
-                "Hamare number pe aaya? Husband ko bataungi, wo khush honge!",
-                "25 lakh rupees? Itne mein toh beta ki shaadi ho jayegi!",
+                "Arey! Ye kya message hai? Mujhe theek se samajh nahi aa raha.",
+                "Hamare number pe aaya? Husband ko bataungi, par hua kya hai?",
+                "Arey baap re! Ye sab kya hai? Main kya karoon ab?",
                 "Kaun bol raha hai? Kahan se mila mera number?"
             ],
             "ask_for_details": [
-                "Ye UPI kya hota hai? Main toh Paytm use karti hoon.",
-                "Kitna dena padega? Husband se poochna padega, mere paas toh extra nahi hai.",
-                "Kahan bhejun paisa? Sab detail do na.",
-                "Account number likh leti hoon... ek minute, pen le kar aati hoon."
+                "Ye sab kaise karte hain? Main toh bas message padh rahi hoon.",
+                "Kitna time lagega? Husband se poochna padega.",
+                "Kahan bhejun details? Sab theek se batao na.",
+                "Likh leti hoon... ek minute, pen le kar aati hoon."
             ],
             "show_hesitation": [
-                "Padosi ne kaha tha ye sab fraud hai. Sach mein milega na prize?",
-                "Husband mana karenge... unko bataye bina nahi bhej sakti.",
-                "Aap bank wale ho ya company wale? Proof dikhao na.",
-                "Agar fake nikla toh? Mere ghar mein koi kama nahi raha."
+                "Padosi ne kaha tha ye sab fraud hai. Sach bol rahe ho na?",
+                "Husband mana karenge... unko bataye bina nahi lag kar sakti.",
+                "Aap kahan se bol rahe ho? Proof dikhao na.",
+                "Agar fake nikla toh? Mere ghar mein tension ho jayega."
             ],
             "pretend_compliance": [
-                "Theek hai, kal husband bank jayenge toh bhejwa dungi.",
-                "Abhi batao account number, likh leti hoon diary mein.",
-                "Paytm pe bhej doon? UPI ID do.",
-                "Subah 10 baje bank khulega, tab bhejungi. Yaad dilaana!"
+                "Theek hai, kal husband aayenge toh kar dungi.",
+                "Abhi batao kya karna hai, likh leti hoon diary mein.",
+                "Kaise karna hai? Mujhe steps batao.",
+                "Subah 10 baje bank khulega, tab karungi. Yaad dilaana!"
             ],
             "extract_info": [
-                "Account kiski naam pe hai? Bank mein poochhenge.",
+                "Account ya kiski naam pe hai? Main verify karungi.",
                 "Aapka naam kya hai? Kahan ki company hai ye?",
                 "Phone number dijiye, kal call karke confirm karungi.",
                 "Website hai koi? Husband ko dikhaungi, wo computer chalate hain."
@@ -212,34 +212,34 @@ PERSONAS: Dict[PersonaType, Persona] = {
         tech_savviness=0.5,
         response_templates={
             "initial_interest": [
-                "Yes! I'm very interested! I've been looking for job for 6 months!",
-                "35k per month?! This is more than my friends earn! Please give more details!",
-                "Work from home is perfect! I can start immediately! What's the process?",
-                "Sir, I'm a B.Com graduate. Will I be eligible?"
+                "Hello! I am Amit. I read your message. Can you explain what this is about?",
+                "This is very sudden! Please give me more details.",
+                "I can follow instructions. What's the process?",
+                "Sir, I'm a B.Com graduate and looking for opportunities. Is this legitimate?"
             ],
             "ask_for_details": [
-                "What exactly is the work? What software do I need?",
-                "Is training provided? I'm a fast learner!",
-                "What are the working hours? Can I do part-time?",
-                "When will I get salary? I really need money urgently."
+                "What exactly do I need to do? What software do I need?",
+                "Can you guide me step by step? I'm a fast learner!",
+                "When will this be completed? Is it urgent?",
+                "Can you explain the exact process?"
             ],
             "show_hesitation": [
-                "Sir, registration fee? My friend said genuine jobs don't charge...",
-                "Can you share company website? I want to check reviews.",
-                "Is this on Naukri or LinkedIn? Can you share job link?",
-                "500 rupees is a lot for me right now... is there any other way?"
+                "Sir, my friend said these messages are often fake...",
+                "Can you share an official website? I want to check reviews.",
+                "Is this linked anywhere officially? Can you share a link?",
+                "This seems suspicious... is there any other way?"
             ],
             "pretend_compliance": [
-                "Okay sir, I will arrange money. Please share payment details.",
-                "I'm ready to pay. Should I do UPI or bank transfer?",
-                "My father will give me money. Share the account details.",
-                "I'll pay now itself. Give me UPI ID sir."
+                "Okay sir, I will try to arrange what you need. Please share details.",
+                "I'm ready. Should I do it through browser or app?",
+                "My father is helping me. Share the exact details.",
+                "I'll do it now itself. Give me the info sir."
             ],
             "extract_info": [
-                "What is company's registered name? For my records.",
-                "Give me HR contact number. I want to call and confirm.",
-                "Where is office located? I want to visit for interview.",
-                "Sir please share your visiting card or LinkedIn profile."
+                "What is the registered name of your organization? For my records.",
+                "Give me a contact number. I want to call and confirm.",
+                "Where is the office located? I want to verify.",
+                "Sir please share an official ID or linked profile."
             ]
         }
     )
