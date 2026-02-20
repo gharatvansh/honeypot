@@ -427,7 +427,7 @@ async def honeypot_endpoint(
         )
         
         # conversation_active: tracks state from conversation manager, but explicitly ends on 0 history for 1-shot testers
-        conversation_active = False if len(history_data) == 0 else (tracked_conv.is_active if tracked_conv else True)
+        conversation_active = False if len(request.conversationHistory) == 0 else (tracked_conv.is_active if tracked_conv else True)
         
         response = {
             "status": "success",
