@@ -300,7 +300,12 @@ class PersonaEngine:
                     
                 probe = random.choice(available_probing)
                 self.used_responses.add(probe)
-                response = response + " " + probe
+                combined = response + " " + probe
+                # Deduplicate the full combined response as well
+                if combined not in self.used_responses:
+                    self.used_responses.add(combined)
+                    response = combined
+                # else keep response as just base_response (no probe appended)
         
         # Track our response in history
         self.conversation_history.append({"role": "honeypot", "text": response})
@@ -334,10 +339,12 @@ class PersonaEngine:
         """Get probing questions based on what we haven't extracted yet."""
         questions = []
         
-        has_bank = bool(extracted_intel.get("bank_accounts"))
-        has_upi = bool(extracted_intel.get("upi_ids"))
-        has_links = bool(extracted_intel.get("phishing_links"))
-        has_phones = bool(extracted_intel.get("phone_numbers"))
+        # Check both snake_case keys (aggregated_intelligence) and camelCase keys (aggregated_intelligence_camel)
+        has_bank = bool(extracted_intel.get("bank_accounts") or extracted_intel.get("bankAccounts"))
+        has_upi = bool(extracted_intel.get("upi_ids") or extracted_intel.get("upiIds"))
+        has_links = bool(extracted_intel.get("phishing_links") or extracted_intel.get("phishingLinks"))
+        has_phones = bool(extracted_intel.get("phone_numbers") or extracted_intel.get("phoneNumbers"))
+        has_email = bool(extracted_intel.get("emails") or extracted_intel.get("emailAddresses"))
         
         if not has_bank:
             questions.extend([
