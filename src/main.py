@@ -485,7 +485,8 @@ async def honeypot_endpoint(
                 "confidenceLevel": min(conv_confidence / 100.0, 1.0) if conv_confidence > 1 else conv_confidence
             }
         
-        response["finalOutput"] = final_output
+        # Update response with all final_output fields at the ROOT level
+        response.update(final_output)
 
         print(f"Sending success response for ID: {response['conversation_id']}")
         return response
