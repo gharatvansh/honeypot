@@ -426,10 +426,8 @@ async def honeypot_endpoint(
             else analysis.get("confidence", 0)
         )
         
-        # conversation_active: always True for first 9 turns to maximize turn-count score
-        persona_engine = conversation_manager.personas.get(conv_id)
-        turns_so_far = persona_engine.exchange_count if persona_engine else 0
-        conversation_active = turns_so_far < 10
+        # conversation_active: tracks state from conversation manager, but explicitly ends on 0 history for 1-shot testers
+        conversation_active = False if len(history) == 0 else (tracked_conv.is_active if tracked_conv else True)
         
         response = {
             "status": "success",
