@@ -277,12 +277,30 @@ class PersonaEngine:
                 self.conversation_phase, 
                 self.persona.response_templates["initial_interest"]
             )
-            response = random.choice(templates)
+            
+            if not hasattr(self, "used_responses"):
+                self.used_responses = set()
+                
+            # Prevent repetition of the main template
+            available_templates = [t for t in templates if t not in self.used_responses]
+            if not available_templates:
+                available_templates = templates
+                
+            base_response = random.choice(available_templates)
+            self.used_responses.add(base_response)
+            
+            response = base_response
             
             # Append a probing question to extract more info
             probing_questions = self._get_probing_questions(extracted_intel)
             if probing_questions:
-                response = response + " " + random.choice(probing_questions)
+                available_probing = [q for q in probing_questions if q not in self.used_responses]
+                if not available_probing:
+                    available_probing = probing_questions
+                    
+                probe = random.choice(available_probing)
+                self.used_responses.add(probe)
+                response = response + " " + probe
         
         # Track our response in history
         self.conversation_history.append({"role": "honeypot", "text": response})
