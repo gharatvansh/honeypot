@@ -500,9 +500,9 @@ async def honeypot_endpoint(
             "conversation_id": "error",
             "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
             "input_message": "",
-            "reply": f"I'm having trouble understanding. Can you repeat that?",
-            "message": f"I'm having trouble understanding. Can you repeat that?",
-            "text": f"I'm having trouble understanding. Can you repeat that?",
+            "reply": f"ERROR: {error_detail}",
+            "message": f"ERROR: {error_detail}",
+            "text": f"ERROR: {error_detail}",
             "scam_detected": False,
             "scam_analysis": {"is_scam": False, "scam_type": None, "confidence": 0, "indicators": []},
             "extracted_intelligence": {
@@ -512,7 +512,7 @@ async def honeypot_endpoint(
                 "phone_numbers": [],
                 "emails": []
             },
-            "honeypot_response": f"I'm having trouble understanding. Can you repeat that?",
+            "honeypot_response": f"ERROR: {error_detail}",
             "conversation_active": True,
             "finalOutput": {
                 "sessionId": conv_id if 'conv_id' in locals() else "error",
