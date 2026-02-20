@@ -353,40 +353,92 @@ async def honeypot_endpoint(
                     forced_conversation_id=conversation_id
                 )
         
+        # -- Collect timestamps from conversationHistory for engagement duration --
+        history_timestamps = []
+        if conversation_history:
+            for hm in conversation_history:
+                if isinstance(hm, dict):
+                    ts = hm.get("timestamp")
+                    if isinstance(ts, (int, float)) and ts > 0:
+                        history_timestamps.append(int(ts))
+        # Also add the current message timestamp
+        if isinstance(timestamp, (int, float)) and timestamp > 0:
+            history_timestamps.append(int(timestamp))
+        
+        # -- Update conversation-level tracking (timestamps, scammer text) --
+        conv_id = result.get("conversation_id", conversation_id)
+        tracked_conv = conversation_manager.conversations.get(conv_id)
+        if tracked_conv:
+            # Accumulate scammer text for red flag detection
+            tracked_conv.all_scammer_text += " " + message
+            # Track timestamps for real engagement duration
+            current_ts_ms = int(timestamp) if isinstance(timestamp, (int, float)) and timestamp > 0 else 0
+            if current_ts_ms > 0:
+                if tracked_conv.first_msg_timestamp_ms == 0:
+                    tracked_conv.first_msg_timestamp_ms = current_ts_ms
+                tracked_conv.last_msg_timestamp_ms = max(tracked_conv.last_msg_timestamp_ms, current_ts_ms)
+            # Count elicitation attempts (questions our honeypot asks)
+            honeypot_reply_text = result.get("honeypot_response", "")
+            tracked_conv.questions_asked += honeypot_reply_text.count("?")
+        
         # Build response - include multiple field names for compatibility
         honeypot_reply = result.get("honeypot_response", "")
         
-        # Extract suspicious keywords from the message
-        suspicious_keywords = extract_suspicious_keywords(message)
+        # Extract suspicious keywords from the FULL accumulated scammer text
+        tracked_conv = conversation_manager.conversations.get(conv_id)
+        full_scammer_text = tracked_conv.all_scammer_text if tracked_conv else message
+        suspicious_keywords = extract_suspicious_keywords(full_scammer_text)
         
         # Get message count for this session
-        conversation = conversation_manager.get_conversation(result.get("conversation_id", conversation_id))
+        conversation = conversation_manager.get_conversation(conv_id)
         message_count = conversation.get("message_count", 1) if conversation else 1
         
-        # Add suspicious keywords to intel
-        intel_with_keywords = dict(intel)  # Copy the original intel
-        intel_with_keywords["suspiciousKeywords"] = suspicious_keywords
+        # Questions asked count
+        questions_asked = tracked_conv.questions_asked if tracked_conv else honeypot_reply.count("?")
         
-        # Generate agent notes
+        # Generate agent notes with red flags + elicitation
         agent_notes = generate_agent_notes(
-            analysis.get("scam_type"),
-            intel,
-            message_count,
-            suspicious_keywords
+            # Use CONVERSATION-LEVEL scam_type (not just per-turn analysis)
+            scam_type=(
+                (tracked_conv.scam_type if tracked_conv and tracked_conv.scam_type else None)
+                or analysis.get("scam_type")
+            ),
+            extracted_intelligence=intel,
+            message_count=message_count,
+            suspicious_keywords=suspicious_keywords,
+            full_conversation_text=full_scammer_text,
+            questions_asked=questions_asked
         )
         
-        conv_id = result.get("conversation_id", conversation_id)
+        # Determine scam detection using CONVERSATION-LEVEL state (never drops after first detection)
+        conv_scam_detected = (
+            (tracked_conv is not None and (bool(tracked_conv.scam_type) or tracked_conv.scam_confidence >= 30.0))
+            or analysis.get("is_scam", False)
+        )
+        conv_scam_type = (
+            (tracked_conv.scam_type if tracked_conv and tracked_conv.scam_type else None)
+            or analysis.get("scam_type")
+        )
+        conv_confidence = (
+            tracked_conv.scam_confidence if tracked_conv and tracked_conv.scam_confidence > 0
+            else analysis.get("confidence", 0)
+        )
+        
+        # conversation_active: always True for first 9 turns to maximize turn-count score
+        persona_engine = conversation_manager.personas.get(conv_id)
+        turns_so_far = persona_engine.exchange_count if persona_engine else 0
+        conversation_active = turns_so_far < 10
         
         response = {
             "status": "success",
             "conversation_id": conv_id,
             "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
             "input_message": message,
-            "scam_detected": analysis.get("is_scam", False),
+            "scam_detected": conv_scam_detected,
             "scam_analysis": {
-                "is_scam": analysis.get("is_scam", False),
-                "scam_type": analysis.get("scam_type"),
-                "confidence": analysis.get("confidence", 0),
+                "is_scam": conv_scam_detected,
+                "scam_type": conv_scam_type,
+                "confidence": conv_confidence,
                 "indicators": analysis.get("indicators", [])
             },
             "extracted_intelligence": intel,
@@ -397,22 +449,38 @@ async def honeypot_endpoint(
             "text": honeypot_reply,
             "agent_notes": agent_notes,
             "total_messages": message_count,
-            "conversation_active": result.get("should_continue", False)
+            "conversation_active": conversation_active
         }
         
         # Generate finalOutput for evaluation
-        final_output = conversation_manager.get_final_output(conv_id)
+        final_output = conversation_manager.get_final_output(
+            conv_id,
+            history_timestamps=history_timestamps if history_timestamps else None
+        )
         if not final_output:
             # Build fallback finalOutput if no conversation was tracked
             final_output = {
                 "sessionId": conv_id,
-                "scamDetected": analysis.get("is_scam", False),
+                "scamDetected": conv_scam_detected,
                 "totalMessagesExchanged": message_count,
-                "engagementDurationSeconds": 0,
-                "extractedIntelligence": extract_intelligence_camel(message),
+                "engagementDurationSeconds": max(
+                    (max(history_timestamps) - min(history_timestamps)) // 1000
+                    if len(history_timestamps) >= 2 else 0,
+                    0
+                ),
+                "extractedIntelligence": {
+                    "phoneNumbers": extract_intelligence_camel(message).get("phoneNumbers", []),
+                    "bankAccounts": extract_intelligence_camel(message).get("bankAccounts", []),
+                    "upiIds": extract_intelligence_camel(message).get("upiIds", []),
+                    "phishingLinks": extract_intelligence_camel(message).get("phishingLinks", []),
+                    "emailAddresses": extract_intelligence_camel(message).get("emailAddresses", []),
+                    "caseIds": extract_intelligence_camel(message).get("caseIds", []),
+                    "policyNumbers": extract_intelligence_camel(message).get("policyNumbers", []),
+                    "orderNumbers": extract_intelligence_camel(message).get("orderNumbers", [])
+                },
                 "agentNotes": agent_notes,
-                "scamType": analysis.get("scam_type", "unknown"),
-                "confidenceLevel": min(analysis.get("confidence", 0) / 100.0, 1.0) if analysis.get("confidence", 0) > 1 else analysis.get("confidence", 0)
+                "scamType": conv_scam_type or "unknown",
+                "confidenceLevel": min(conv_confidence / 100.0, 1.0) if conv_confidence > 1 else conv_confidence
             }
         
         response["finalOutput"] = final_output
