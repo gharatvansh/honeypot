@@ -1,4 +1,4 @@
-# 🍯 Honeypot API
+#  Honeypot API
 
 ## Description
 
