@@ -49,7 +49,7 @@ print(f"PASS: phishing/lottery detected correctly ({r3['scam_type']})\n")
 print("=" * 60)
 print("TEST 4: scamDetected threshold in finalOutput")
 print("=" * 60)
-from src.conversation_manager import ConversationManager
+from src.honeypot_agent import ConversationManager
 cm = ConversationManager()
 result4 = cm.start_conversation("URGENT: Your SBI account has been compromised. Share OTP immediately.")
 conv_id = result4['conversation_id']
@@ -63,7 +63,7 @@ print("PASS: scamDetected threshold correct\n")
 print("=" * 60)
 print("TEST 5: MessageBody accepts string timestamp (no 422)")
 print("=" * 60)
-from main import MessageBody
+from src.main import MessageBody
 try:
     mb = MessageBody(sender="scammer", text="Hello", timestamp="2025-02-11T10:30:00Z")
     print(f"PASS: String timestamp accepted: {mb.timestamp}")

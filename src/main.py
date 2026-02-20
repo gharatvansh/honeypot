@@ -16,10 +16,12 @@ from pydantic import BaseModel
 # Load environment variables
 load_dotenv()
 
-# Import our modules
+import sys
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
 from src.detection import analyze_message
 from src.extraction import extract_intelligence, extract_intelligence_camel
-from src.conversation_manager import conversation_manager
+from src.honeypot_agent import conversation_manager
 from src.mock import get_random_scam_message
 from src.utils import extract_suspicious_keywords, generate_agent_notes
 

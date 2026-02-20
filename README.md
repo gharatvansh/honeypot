@@ -33,7 +33,7 @@ An autonomous AI honeypot system that detects scam attempts, engages scammers us
 
 4. **Run the application**
    ```bash
-   python main.py
+   python src/main.py
    ```
    API will be available at `http://localhost:8000`
 
@@ -108,11 +108,11 @@ An autonomous AI honeypot system that detects scam attempts, engages scammers us
 
 ```
 honeypot/
-├── main.py                 # FastAPI server with /honeypot and /api/honeypot endpoints
-├── dashboard.py            # Streamlit dashboard (optional)
 ├── requirements.txt        # Python dependencies
 ├── .env.example            # Environment variables template
 └── src/
+    ├── main.py             # FastAPI server with /honeypot and /api/honeypot endpoints
+    ├── honeypot_agent.py   # Honeypot logic and conversation state
     ├── detection/          # Scam detection module
     │   ├── patterns.py     # Scam patterns library (6 types)
     │   └── scam_detector.py
@@ -122,8 +122,6 @@ honeypot/
     │   └── persona_engine.py  # 5 persona types with response templates
     ├── mock/               # Mock scammer API for testing
     │   └── mock_scammer.py
-    └── conversation_manager.py  # Session state, timing, and finalOutput generation
-```
 
 ## License
 

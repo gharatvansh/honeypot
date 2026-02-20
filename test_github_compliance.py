@@ -6,7 +6,7 @@ def test_github_requirements():
     print("=" * 60)
     
     # 1. Check required files and directories
-    required_files = ["README.md", "requirements.txt", ".env.example", "main.py"]
+    required_files = ["README.md", "requirements.txt", ".env.example", "src/main.py", "src/honeypot_agent.py"]
     required_dirs = ["src"]
     
     print("\n--- Checking Files & Directories ---")
