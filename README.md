@@ -8,7 +8,7 @@ An autonomous AI honeypot system that detects scam attempts, engages scammers us
 
 - **Language/Framework**: Python 3.x / FastAPI
 - **Key Libraries**: Pydantic, uvicorn, python-dotenv, google-genai
-- **LLM**: Google Gemini (`gemini-2.0-flash`) — used for natural honeypot conversation generation with template fallback
+- **LLM**: Dual-backend architecture using Groq (`llama-3.3-70b-versatile`) as primary for speed/scale, automatically falling back to Google Gemini (`gemini-2.0-flash`) or local templates if rate-limited.
 - **AI/ML**: Rule-based pattern matching + NLP-based scam detection engine with 8 scam type classifiers (bank_fraud, phishing, upi_fraud, lottery, kyc_fraud, job_scam, romance_scam, tech_support)
 - **Personas**: 5 believable persona templates (elderly, professional, student, housewife, jobseeker) with LLM-backed context-aware response generation
 
