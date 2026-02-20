@@ -475,10 +475,7 @@ async def honeypot_endpoint(
                     "bankAccounts": extract_intelligence_camel(message).get("bankAccounts", []),
                     "upiIds": extract_intelligence_camel(message).get("upiIds", []),
                     "phishingLinks": extract_intelligence_camel(message).get("phishingLinks", []),
-                    "emailAddresses": extract_intelligence_camel(message).get("emailAddresses", []),
-                    "caseIds": extract_intelligence_camel(message).get("caseIds", []),
-                    "policyNumbers": extract_intelligence_camel(message).get("policyNumbers", []),
-                    "orderNumbers": extract_intelligence_camel(message).get("orderNumbers", [])
+                    "emailAddresses": extract_intelligence_camel(message).get("emailAddresses", [])
                 },
                 "agentNotes": agent_notes,
                 "scamType": conv_scam_type or "unknown",

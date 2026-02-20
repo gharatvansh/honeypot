@@ -399,10 +399,7 @@ class ConversationManager:
             "bankAccounts": intel.get("bankAccounts", []),
             "upiIds": intel.get("upiIds", []),
             "phishingLinks": intel.get("phishingLinks", []),
-            "emailAddresses": intel.get("emailAddresses", []),
-            "caseIds": intel.get("caseIds", []),
-            "policyNumbers": intel.get("policyNumbers", []),
-            "orderNumbers": intel.get("orderNumbers", [])
+            "emailAddresses": intel.get("emailAddresses", [])
         }
         
         # Build final output
