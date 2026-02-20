@@ -1,107 +1,128 @@
-# 🍯 Agentic Honeypot System
+# 🍯 Honeypot API
 
-Autonomous AI honeypot system for scam detection and intelligence extraction.
+## Description
 
-## Features
+An autonomous AI honeypot system that detects scam attempts, engages scammers using believable personas to waste their time, and extracts intelligence (phone numbers, bank accounts, UPI IDs, phishing links, emails, case IDs) from conversations. The system is designed to keep scammers engaged for as long as possible while covertly gathering identifying information.
 
-- **Scam Detection**: Detects 6 types of scams (lottery, UPI fraud, job scam, KYC fraud, romance scam, tech support)
-- **Fake Personas**: 5 believable personas that engage scammers strategically
-- **Intelligence Extraction**: Extracts bank accounts, UPI IDs, phishing links, phone numbers
-- **Mock Scammer API**: Simulates realistic scam conversations for testing
-- **API Authentication**: Secured with X-API-Key header
-- **Streamlit Dashboard**: Interactive UI for analysis and monitoring
+## Tech Stack
 
-## Quick Start
+- **Language/Framework**: Python 3.x / FastAPI
+- **Key Libraries**: Pydantic, uvicorn, python-dotenv, google-genai
+- **LLM**: Google Gemini (`gemini-2.0-flash`) — used for natural honeypot conversation generation with template fallback
+- **AI/ML**: Rule-based pattern matching + NLP-based scam detection engine with 8 scam type classifiers (bank_fraud, phishing, upi_fraud, lottery, kyc_fraud, job_scam, romance_scam, tech_support)
+- **Personas**: 5 believable persona templates (elderly, professional, student, housewife, jobseeker) with LLM-backed context-aware response generation
 
-### 1. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
+## Setup Instructions
 
-### 2. Configure Environment
-```bash
-# Copy example and edit
-cp .env.example .env
-# Edit .env to set your API_KEY
-```
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-username/honeypot.git
+   cd honeypot
+   ```
 
-### 3. Start the API Server
-```bash
-python main.py
-```
-API will be available at `http://localhost:8000`
+2. **Install dependencies**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-### 4. Start the Dashboard (Optional)
-```bash
-streamlit run dashboard.py
-```
-Dashboard will open at `http://localhost:8501`
+3. **Set environment variables**
+   ```bash
+   cp .env.example .env
+   # Edit .env and set your API_KEY value
+   ```
 
-## API Endpoints
+4. **Run the application**
+   ```bash
+   python main.py
+   ```
+   API will be available at `http://localhost:8000`
 
-| Endpoint | Method | Auth | Description |
-|----------|--------|------|-------------|
-| `/api/health` | GET | ❌ | Health check |
-| `/api/honeypot` | POST | ✅ | Main endpoint - analyze & engage |
-| `/api/analyze` | POST | ✅ | Analyze message for scam indicators |
-| `/api/engage` | POST | ✅ | Start/continue honeypot engagement |
-| `/api/intelligence` | GET | ✅ | Get all extracted intelligence |
-| `/api/conversations` | GET | ✅ | Get conversation history |
-| `/api/simulate` | POST | ✅ | Run mock scammer simulation |
+## API Endpoint
 
-## Authentication
+- **URL**: `https://your-deployed-url.com/honeypot` (or `/api/honeypot`)
+- **Method**: POST
+- **Authentication**: `x-api-key` header
 
-All endpoints (except `/api/health`) require the `X-API-Key` header:
-
-```bash
-curl -X POST http://localhost:8000/api/honeypot \
-  -H "X-API-Key: your-api-key" \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Congratulations! You won 10 lakhs!"}'
-```
-
-## Example Response
+### Request Format
 
 ```json
 {
-  "conversation_id": "uuid",
-  "timestamp": "2024-01-30T12:00:00Z",
-  "scam_analysis": {
-    "is_scam": true,
-    "scam_type": "lottery",
-    "confidence": 92.5,
-    "indicators": ["lottery_patterns", "urgency_tactics"]
+  "sessionId": "uuid-v4-string",
+  "message": {
+    "sender": "scammer",
+    "text": "URGENT: Your account has been compromised...",
+    "timestamp": "2025-02-11T10:30:00Z"
   },
-  "extracted_intelligence": {
-    "bank_accounts": [],
-    "upi_ids": [],
-    "phishing_links": [],
-    "phone_numbers": [],
-    "emails": []
-  },
-  "honeypot_response": "Oh my! Is this really true? I never win anything!"
+  "conversationHistory": [],
+  "metadata": {
+    "channel": "SMS",
+    "language": "English",
+    "locale": "IN"
+  }
 }
 ```
+
+### Response Format
+
+```json
+{
+  "status": "success",
+  "reply": "Oh my! Is this really true? Can you tell me more about this?",
+  "finalOutput": {
+    "sessionId": "uuid",
+    "scamDetected": true,
+    "totalMessagesExchanged": 6,
+    "engagementDurationSeconds": 120,
+    "extractedIntelligence": {
+      "phoneNumbers": ["+91-9876543210"],
+      "bankAccounts": ["1234567890123456"],
+      "upiIds": ["scammer@fakebank"],
+      "phishingLinks": [],
+      "emailAddresses": []
+    },
+    "agentNotes": "Detected bank_fraud scam attempt. Extracted: 1 phone number(s), 1 bank account(s).",
+    "scamType": "bank_fraud",
+    "confidenceLevel": 0.92
+  }
+}
+```
+
+## Approach
+
+### How We Detect Scams
+- **Pattern matching**: 6 scam type classifiers (lottery, UPI fraud, job scam, KYC fraud, romance scam, tech support) using keyword analysis and urgency/pressure indicators
+- **Confidence scoring**: Multi-factor analysis combining keyword density, urgency tactics, and behavioral patterns
+
+### How We Extract Intelligence
+- **Regex-based extraction**: Phone numbers (Indian & international formats), bank account numbers, IFSC codes, UPI IDs, phishing URLs, email addresses, case/reference IDs, policy numbers, order numbers
+- **URL analysis**: Suspicious domain detection, URL shortener flagging, phishing pattern matching
+- **Aggregation**: All intelligence is deduplicated and aggregated across conversation turns
+
+### How We Maintain Engagement
+- **5 distinct personas**: Each with unique personality, vocabulary level, trust level, and response templates
+- **Strategic conversation phases**: Initial interest → Ask for details → Show hesitation → Pretend compliance → Extract info
+- **Probing questions**: Automatically generates targeted questions based on what intelligence hasn't been extracted yet
+- **10-turn engagement**: Designed to keep scammers talking for maximum turns to extract all possible intelligence
 
 ## Project Structure
 
 ```
 honeypot/
-├── main.py                 # FastAPI server
-├── dashboard.py            # Streamlit dashboard
-├── requirements.txt
-├── .env
+├── main.py                 # FastAPI server with /honeypot and /api/honeypot endpoints
+├── dashboard.py            # Streamlit dashboard (optional)
+├── requirements.txt        # Python dependencies
+├── .env.example            # Environment variables template
 └── src/
     ├── detection/          # Scam detection module
-    │   ├── patterns.py     # Scam patterns library
+    │   ├── patterns.py     # Scam patterns library (6 types)
     │   └── scam_detector.py
     ├── extraction/         # Intelligence extraction
-    │   └── extractor.py    # Bank, UPI, phishing extraction
+    │   └── extractor.py    # Bank, UPI, phishing, phone, email extraction
     ├── agent/              # Honeypot personas
-    │   └── persona_engine.py
-    ├── mock/               # Mock scammer API
+    │   └── persona_engine.py  # 5 persona types with response templates
+    ├── mock/               # Mock scammer API for testing
     │   └── mock_scammer.py
-    └── conversation_manager.py
+    └── conversation_manager.py  # Session state, timing, and finalOutput generation
 ```
 
 ## License

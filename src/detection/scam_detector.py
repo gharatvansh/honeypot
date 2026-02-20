@@ -139,7 +139,6 @@ class ScamDetector:
         if urgency_matches:
             indicators.append("urgency_tactics")
         
-        # Add sensitive data requests
         if sensitive_matches:
             indicators.append("sensitive_data_request")
         

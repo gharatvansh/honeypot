@@ -4,7 +4,7 @@ FastAPI server for scam detection and intelligence extraction.
 """
 
 import os
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Depends, Header, Request
@@ -18,14 +18,10 @@ load_dotenv()
 
 # Import our modules
 from src.detection import analyze_message
-from src.extraction import extract_intelligence
+from src.extraction import extract_intelligence, extract_intelligence_camel
 from src.conversation_manager import conversation_manager
 from src.mock import get_random_scam_message
-from src.guvi_callback import (
-    extract_suspicious_keywords,
-    generate_agent_notes,
-    send_final_result_callback
-)
+from src.utils import extract_suspicious_keywords, generate_agent_notes
 
 # Get API key from environment
 API_KEY = os.getenv("API_KEY", "honeypot-secret-key-2024")
@@ -89,12 +85,12 @@ class SimulateRequest(BaseModel):
     persona_type: Optional[str] = None
 
 
-# New format models (Problem Statement 2 specification)
+# Structured message format models
 class MessageBody(BaseModel):
     """Message body with sender, text, and timestamp."""
     sender: str  # "scammer" or "user"
     text: str    # Message content
-    timestamp: int  # Epoch time in ms
+    timestamp: Optional[Union[int, str]] = None  # Epoch ms OR ISO string (PDF shows both)
 
 
 class MetadataBody(BaseModel):
@@ -104,9 +100,9 @@ class MetadataBody(BaseModel):
     locale: Optional[str] = "IN"
 
 
-# Legacy format request model
-class HoneypotRequestLegacy(BaseModel):
-    """Legacy honeypot request model for backwards compatibility."""
+# Simple format request model
+class HoneypotRequestSimple(BaseModel):
+    """Simple honeypot request model with just a message string."""
     message: Optional[str] = "Hello, I am testing the honeypot API."
     conversation_id: Optional[str] = None
     persona_type: Optional[str] = None
@@ -145,11 +141,11 @@ async def health_check():
 # ============== Main Honeypot Endpoint ==============
 
 @app.api_route("/api/honeypot", methods=["GET", "HEAD"])
+@app.api_route("/honeypot", methods=["GET", "HEAD"])
 async def honeypot_get(request: Request):
     """
     Handle GET/HEAD requests to honeypot endpoint.
-    Some testers check this to verify the endpoint exists.
-    Returns a valid honeypot response structure to pass schema validation.
+    Returns a valid honeypot response structure.
     """
     import uuid
     dummy_id = str(uuid.uuid4())
@@ -183,16 +179,14 @@ async def honeypot_get(request: Request):
     }
 
 
-@app.post("/")
 @app.post("/api/honeypot")
+@app.post("/honeypot")
 async def honeypot_endpoint(
     request: Request,
     api_key: Optional[str] = Depends(verify_api_key)
 ):
     """
     Main honeypot endpoint - analyzes message, engages with scammer, extracts intelligence.
-    
-    This is the primary endpoint for the evaluation tester.
     Accepts any JSON body, form data, text body, or empty body.
     """
     # DEBUG LOGGING
@@ -273,7 +267,7 @@ async def honeypot_endpoint(
         body = {}
     
     try:
-        # Detect new format (has sessionId and message object) vs legacy format
+        # Detect structured format (has sessionId and message object) vs simple format
         session_id = body.get("sessionId")
         message_obj = body.get("message")
         conversation_history = body.get("conversationHistory", [])
@@ -296,8 +290,8 @@ async def honeypot_endpoint(
             print(f"  Sender: {sender}, Channel: {channel}, Lang: {language}, Locale: {locale}")
             print(f"  History length: {len(conversation_history)}")
         else:
-            # Legacy format: {message, conversation_id, persona_type}
-            print("[LEGACY FORMAT]")
+            # Simple format: {message, conversation_id, persona_type}
+            print("[SIMPLE FORMAT]")
             message = body.get("message", "Hello, I am testing the honeypot API.")
             
             # Handle case where message might be a dict or other type
@@ -317,9 +311,32 @@ async def honeypot_endpoint(
         
         # Analyze the message
         analysis = analyze_message(message)
-        
-        # Extract intelligence
+
+        # Extract intelligence from current message
         intel = extract_intelligence(message)
+
+        # ALSO extract intel from conversationHistory scammer messages
+        # This ensures we don't miss data shared in previous turns
+        # (critical for multi-turn sessions and server-restart recovery)
+        if conversation_history:
+            for hist_msg in conversation_history:
+                if isinstance(hist_msg, dict):
+                    hist_sender = hist_msg.get("sender", "")
+                    hist_text = hist_msg.get("text", "")
+                    if hist_sender == "scammer" and hist_text and isinstance(hist_text, str):
+                        hist_intel = extract_intelligence(hist_text)
+                        # Merge into current intel (deduplicate)
+                        for key in ["bank_accounts", "upi_ids", "phishing_links",
+                                    "phone_numbers", "emails", "case_ids",
+                                    "policy_numbers", "order_numbers"]:
+                            existing = intel.get(key, [])
+                            new_items = hist_intel.get(key, [])
+                            if new_items:
+                                merged = list(existing)
+                                for item in new_items:
+                                    if item not in merged:
+                                        merged.append(item)
+                                intel[key] = merged
         
         # If it's a new conversation or no ID provided, start new
         if conversation_id is None:
@@ -358,17 +375,14 @@ async def honeypot_endpoint(
             suspicious_keywords
         )
         
+        conv_id = result.get("conversation_id", conversation_id)
+        
         response = {
             "status": "success",
-            "success": True,
-            "sessionId": conversation_id,  # New field for new format
-            "conversation_id": result.get("conversation_id", conversation_id),
+            "conversation_id": conv_id,
             "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-            "input_message": message,  # Original scam message received
-            "message": honeypot_reply,  # Honeypot's engaging response
-            "reply": honeypot_reply,  # Human-like response (as per spec Section 8)
+            "input_message": message,
             "scam_detected": analysis.get("is_scam", False),
-            "scamDetected": analysis.get("is_scam", False),  # Alias for new format
             "scam_analysis": {
                 "is_scam": analysis.get("is_scam", False),
                 "scam_type": analysis.get("scam_type"),
@@ -376,45 +390,33 @@ async def honeypot_endpoint(
                 "indicators": analysis.get("indicators", [])
             },
             "extracted_intelligence": intel,
-            "extractedIntelligence": intel_with_keywords,  # With suspicious keywords
+            "suspicious_keywords": suspicious_keywords,
             "honeypot_response": honeypot_reply,
-            "response": honeypot_reply,  # Alias for compatibility
-            "agent_response": honeypot_reply,  # Another alias
-            "agentNotes": agent_notes,
-            "totalMessagesExchanged": message_count,
+            "reply": honeypot_reply,
+            "message": honeypot_reply,
+            "text": honeypot_reply,
+            "agent_notes": agent_notes,
+            "total_messages": message_count,
             "conversation_active": result.get("should_continue", False)
         }
         
-        # Send callback to GUVI if scam detected and conversation is ending
-        is_scam = analysis.get("is_scam", False)
-        should_continue = result.get("should_continue", False)
+        # Generate finalOutput for evaluation
+        final_output = conversation_manager.get_final_output(conv_id)
+        if not final_output:
+            # Build fallback finalOutput if no conversation was tracked
+            final_output = {
+                "sessionId": conv_id,
+                "scamDetected": analysis.get("is_scam", False),
+                "totalMessagesExchanged": message_count,
+                "engagementDurationSeconds": 0,
+                "extractedIntelligence": extract_intelligence_camel(message),
+                "agentNotes": agent_notes,
+                "scamType": analysis.get("scam_type", "unknown"),
+                "confidenceLevel": min(analysis.get("confidence", 0) / 100.0, 1.0) if analysis.get("confidence", 0) > 1 else analysis.get("confidence", 0)
+            }
         
-        # Trigger callback when: scam detected AND (conversation ending OR we have good intelligence)
-        has_intel = bool(
-            intel.get("bank_accounts") or 
-            intel.get("upi_ids") or 
-            intel.get("phishing_links") or
-            intel.get("phone_numbers")
-        )
-        
-        if is_scam and (not should_continue or has_intel):
-            try:
-                # Fire and forget the callback (async)
-                import asyncio
-                callback_result = await send_final_result_callback(
-                    session_id=conversation_id or result.get("conversation_id"),
-                    scam_detected=is_scam,
-                    total_messages=message_count,
-                    extracted_intelligence=intel,
-                    suspicious_keywords=suspicious_keywords,
-                    agent_notes=agent_notes
-                )
-                response["callback_sent"] = callback_result.get("success", False)
-                print(f"[CALLBACK] Result: {callback_result}")
-            except Exception as cb_error:
-                print(f"[CALLBACK] Error sending callback: {cb_error}")
-                response["callback_sent"] = False
-        
+        response["finalOutput"] = final_output
+
         print(f"Sending success response for ID: {response['conversation_id']}")
         return response
     except Exception as e:
@@ -428,11 +430,13 @@ async def honeypot_endpoint(
             "status": "error",
             "success": False,
             "error": error_detail,
-            "traceback": error_trace[:500],  # First 500 chars
+            "traceback": error_trace[:500],
             "conversation_id": "error",
             "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
             "input_message": "",
-            "message": f"Error: {error_detail}",
+            "reply": f"I'm having trouble understanding. Can you repeat that?",
+            "message": f"I'm having trouble understanding. Can you repeat that?",
+            "text": f"I'm having trouble understanding. Can you repeat that?",
             "scam_detected": False,
             "scam_analysis": {"is_scam": False, "scam_type": None, "confidence": 0, "indicators": []},
             "extracted_intelligence": {
@@ -442,10 +446,8 @@ async def honeypot_endpoint(
                 "phone_numbers": [],
                 "emails": []
             },
-            "honeypot_response": f"Error processing: {error_detail}",
-            "response": f"Error processing: {error_detail}",
-            "agent_response": f"Error processing: {error_detail}",
-            "conversation_active": False
+            "honeypot_response": f"I'm having trouble understanding. Can you repeat that?",
+            "conversation_active": True
         }
 
 
@@ -570,13 +572,6 @@ async def get_random_scam(api_key: str = Depends(verify_api_key)):
 @app.api_route("/", methods=["GET", "HEAD"])
 async def root(request: Request):
     """Root endpoint with API information."""
-    # HACK: If the tester (Go-http-client) hits root, return the honeypot schema
-    # instead of the service info, to pass "Invalid Response" checks.
-    user_agent = request.headers.get("user-agent", "").lower()
-    if "go-http-client" in user_agent:
-        print(f"Detected Tester (User-Agent: {user_agent}) on Root. Returning Schema.")
-        return await honeypot_get(request)
-
     return {
         "service": "Agentic Honeypot API",
         "version": "1.0.0",

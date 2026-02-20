@@ -8,6 +8,39 @@ from typing import List, Dict
 
 # Scam type definitions
 SCAM_TYPES = {
+    "bank_fraud": {
+        "keywords": [
+            "account compromised", "account has been compromised", "sbi", "hdfc", "icici", "axis",
+            "bank account", "otp", "share otp", "provide otp", "enter otp",
+            "bank fraud", "fraud department", "customer care", "helpline",
+            "account blocked", "account suspended", "account frozen", "debit blocked",
+            "transaction failed", "unauthorized transaction", "suspicious transaction",
+            "your account", "account number", "bank details"
+        ],
+        "patterns": [
+            r"(?:your)?\s*(?:sbi|hdfc|icici|axis|bank)\s*account\s*(?:has been|is|will be)\s*(?:compromised|blocked|suspended|flagged)",
+            r"share\s*(?:your)?\s*otp",
+            r"(?:fraud|security)\s*department",
+            r"unauthorized\s*(?:transaction|access|activity)",
+        ],
+        "weight": 1.3
+    },
+    "phishing": {
+        "keywords": [
+            "click here", "click the link", "visit this link", "follow this link",
+            "verify your account", "confirm your details", "update your information",
+            "fake offer", "limited offer", "exclusive deal", "congratulations you won",
+            "claim now", "claim your reward", "free gift", "amazon", "flipkart",
+            "www.", "http", "https", ".com/", "bit.ly", "tinyurl"
+        ],
+        "patterns": [
+            r"https?://[^\s]+",
+            r"www\.[^\s]+",
+            r"click\s*(?:here|the link|this link|below)",
+            r"(?:verify|confirm|update)\s*(?:your)?\s*(?:account|details|info|information)",
+        ],
+        "weight": 1.1
+    },
     "lottery": {
         "keywords": [
             "congratulations", "winner", "won", "lottery", "prize", "lucky draw",
@@ -25,7 +58,8 @@ SCAM_TYPES = {
         "keywords": [
             "upi", "paytm", "phonepe", "gpay", "google pay", "bhim", "send money",
             "transfer", "pay now", "payment link", "collect request", "upi id",
-            "verify account", "receive money", "cashback"
+            "verify account", "receive money", "cashback", "cashback scam",
+            "upi verification", "upi pin", "accept payment request", "collect money"
         ],
         "patterns": [
             r"[a-zA-Z0-9._-]+@[a-zA-Z]+",  # UPI ID pattern

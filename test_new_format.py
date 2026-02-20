@@ -1,4 +1,4 @@
-"""Test the honeypot endpoint with the NEW request format (Problem Statement 2)."""
+"""Test the honeypot endpoint with the structured request format."""
 import json
 from fastapi.testclient import TestClient
 from main import app
@@ -6,7 +6,7 @@ from main import app
 client = TestClient(app)
 headers = {"X-API-Key": "honeypot-secret-key-2024"}
 
-print("Testing NEW format (Problem Statement 2)")
+print("Testing structured request format")
 print("=" * 60)
 
 # Test 1: New format - first message

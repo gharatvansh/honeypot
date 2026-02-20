@@ -41,15 +41,34 @@ class ExtractedIntelligence:
     phishing_links: List[PhishingLink] = field(default_factory=list)
     raw_phone_numbers: List[str] = field(default_factory=list)
     raw_emails: List[str] = field(default_factory=list)
+    case_ids: List[str] = field(default_factory=list)
+    policy_numbers: List[str] = field(default_factory=list)
+    order_numbers: List[str] = field(default_factory=list)
     
     def to_dict(self) -> Dict:
-        """Convert to dictionary for JSON serialization."""
+        """Convert to dictionary for JSON serialization (snake_case)."""
         return {
             "bank_accounts": [asdict(acc) for acc in self.bank_accounts],
             "upi_ids": [asdict(upi) for upi in self.upi_ids],
             "phishing_links": [asdict(link) for link in self.phishing_links],
             "phone_numbers": self.raw_phone_numbers,
-            "emails": self.raw_emails
+            "emails": self.raw_emails,
+            "case_ids": self.case_ids,
+            "policy_numbers": self.policy_numbers,
+            "order_numbers": self.order_numbers
+        }
+    
+    def to_camel_dict(self) -> Dict:
+        """Convert to dictionary with camelCase keys for evaluation system."""
+        return {
+            "phoneNumbers": self.raw_phone_numbers,
+            "bankAccounts": [acc.account_number for acc in self.bank_accounts],
+            "upiIds": [upi.upi_id for upi in self.upi_ids if upi.upi_id],
+            "phishingLinks": [link.url for link in self.phishing_links],
+            "emailAddresses": self.raw_emails,
+            "caseIds": self.case_ids,
+            "policyNumbers": self.policy_numbers,
+            "orderNumbers": self.order_numbers
         }
     
     def has_intelligence(self) -> bool:
@@ -59,7 +78,10 @@ class ExtractedIntelligence:
             self.upi_ids or 
             self.phishing_links or
             self.raw_phone_numbers or
-            self.raw_emails
+            self.raw_emails or
+            self.case_ids or
+            self.policy_numbers or
+            self.order_numbers
         )
 
 
@@ -67,7 +89,9 @@ class IntelligenceExtractor:
     """Extracts sensitive information from messages."""
     
     # Indian bank account patterns
-    ACCOUNT_PATTERN = r'\b\d{9,18}\b'
+    # 11-18 digits: real Indian accounts are min 11 digits (SBI=11, HDFC=14, etc.)
+    # 10-digit numbers are always phone numbers, not account numbers
+    ACCOUNT_PATTERN = r'\b\d{11,18}\b'
     
     # IFSC code pattern (4 letter bank code + 0 + 6 alphanumeric)
     IFSC_PATTERN = r'\b[A-Z]{4}0[A-Z0-9]{6}\b'
@@ -81,11 +105,20 @@ class IntelligenceExtractor:
     # URL pattern
     URL_PATTERN = r'https?://[^\s<>"\']+|www\.[^\s<>"\']+'
     
-    # Phone number pattern (Indian)
-    PHONE_PATTERN = r'\b(?:\+91[-\s]?)?[6-9]\d{9}\b'
+    # Phone number pattern (Indian and international)
+    PHONE_PATTERN = r'(?:\+91[-\s]?)?\b[6-9]\d{9}\b|\+\d{1,3}[-\s]?\d{4,14}'
     
     # Email pattern
     EMAIL_PATTERN = r'\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b'
+    
+    # Case/Reference ID pattern
+    CASE_ID_PATTERN = r'\b(?:case|ref|reference|ticket|complaint|FIR)[-\s#:]*([A-Z0-9]{4,20})\b'
+    
+    # Policy number pattern
+    POLICY_NUMBER_PATTERN = r'\b(?:policy|insurance)[-\s#:]*([A-Z0-9]{4,20})\b'
+    
+    # Order number pattern
+    ORDER_NUMBER_PATTERN = r'\b(?:order|tracking|shipment|AWB)[-\s#:]*([A-Z0-9]{4,20})\b'
     
     # Known UPI providers
     UPI_PROVIDERS = {
@@ -138,52 +171,108 @@ class IntelligenceExtractor:
         # Extract emails
         result.raw_emails = self._extract_emails(message)
         
+        # Extract case/reference IDs
+        result.case_ids = self._extract_case_ids(message)
+        
+        # Extract policy numbers
+        result.policy_numbers = self._extract_policy_numbers(message)
+        
+        # Extract order numbers
+        result.order_numbers = self._extract_order_numbers(message)
+        
         return result
     
     def _extract_bank_accounts(self, message: str) -> List[BankAccount]:
         """Extract bank account numbers and IFSC codes."""
         accounts = []
-        
-        # Find account numbers
+
+        # Find account numbers (11-18 digits)
         account_numbers = re.findall(self.ACCOUNT_PATTERN, message)
-        
+
+        # Find phone numbers to exclude (10-digit Indian mobiles)
+        phone_numbers = re.findall(r'\b[6-9]\d{9}\b', message)
+        phone_set = set(phone_numbers)
+
         # Find IFSC codes
         ifsc_codes = re.findall(self.IFSC_PATTERN, message.upper())
-        
-        # Pair them up
-        for i, acc_num in enumerate(account_numbers):
-            ifsc = ifsc_codes[i] if i < len(ifsc_codes) else None
+
+        ifsc_idx = 0
+        seen = set()
+        for acc_num in account_numbers:
+            # Skip numbers that are just phone numbers
+            if acc_num in phone_set or acc_num in seen:
+                continue
+            seen.add(acc_num)
+            ifsc = ifsc_codes[ifsc_idx] if ifsc_idx < len(ifsc_codes) else None
             bank_name = self._get_bank_from_ifsc(ifsc) if ifsc else None
-            
+            if ifsc:
+                ifsc_idx += 1
+
             accounts.append(BankAccount(
                 account_number=acc_num,
                 ifsc_code=ifsc,
                 bank_name=bank_name
             ))
-        
+
         return accounts
     
+    # Standard email TLDs — if a handle ends in these it's likely a real email, not UPI
+    STANDARD_EMAIL_TLDS = {
+        'com', 'org', 'net', 'edu', 'gov', 'io', 'co', 'in', 'uk',
+        'info', 'biz', 'me', 'app', 'dev', 'ai', 'tech', 'online',
+        'store', 'site', 'web', 'mail', 'email'
+    }
+
     def _extract_upi_info(self, message: str) -> List[UPIInfo]:
         """Extract UPI IDs and links."""
         upi_list = []
-        
-        # Find UPI IDs
+        seen = set()
+
+        # Find UPI IDs — widen to catch any x@domain where domain ≤20 chars
+        # and doesn't look like a standard email domain
         upi_ids = re.findall(self.UPI_ID_PATTERN, message.lower())
         for upi_id in upi_ids:
-            # Filter out regular emails
-            handle = upi_id.split('@')[1]
-            if handle in self.UPI_PROVIDERS or len(handle) <= 5:
-                provider = self.UPI_PROVIDERS.get(handle, "Unknown")
-                upi_list.append(UPIInfo(
-                    upi_id=upi_id,
-                    provider=provider
-                ))
-        
+            if upi_id in seen:
+                continue
+            parts = upi_id.split('@')
+            if len(parts) != 2:
+                continue
+            handle = parts[1]
+
+            # Accept if it's a known UPI provider
+            if handle in self.UPI_PROVIDERS:
+                provider = self.UPI_PROVIDERS[handle]
+                upi_list.append(UPIInfo(upi_id=upi_id, provider=provider))
+                seen.add(upi_id)
+                continue
+
+            # Accept short handles (≤5 chars) — typical UPI shortcodes
+            if len(handle) <= 5:
+                upi_list.append(UPIInfo(upi_id=upi_id, provider="Unknown"))
+                seen.add(upi_id)
+                continue
+
+            # Accept if handle doesn't end with a standard email TLD
+            # e.g. @fakebank, @fraudupi, @fakedep — these are UPI, not email
+            # Real emails end in .com, .org, .net, etc. (domain has a dot+TLD)
+            if '.' not in handle:
+                # No dot at all → definitely a UPI handle (e.g. @fakebank)
+                upi_list.append(UPIInfo(upi_id=upi_id, provider="Unknown"))
+                seen.add(upi_id)
+                continue
+
+            # Has a dot — check if the TLD is a standard email TLD
+            tld = handle.split('.')[-1]
+            if tld not in self.STANDARD_EMAIL_TLDS and len(handle) <= 20:
+                # Non-standard TLD with short domain → likely UPI
+                upi_list.append(UPIInfo(upi_id=upi_id, provider="Unknown"))
+                seen.add(upi_id)
+
         # Find UPI links
         upi_links = re.findall(self.UPI_LINK_PATTERN, message)
         for link in upi_links:
             upi_list.append(UPIInfo(upi_link=link))
-        
+
         return upi_list
     
     def _extract_phishing_links(self, message: str) -> List[PhishingLink]:
@@ -247,6 +336,21 @@ class IntelligenceExtractor:
             prov in e.lower() for prov in self.UPI_PROVIDERS.keys()
         )]
     
+    def _extract_case_ids(self, message: str) -> List[str]:
+        """Extract case/reference IDs."""
+        matches = re.findall(self.CASE_ID_PATTERN, message, re.IGNORECASE)
+        return list(set(matches))
+    
+    def _extract_policy_numbers(self, message: str) -> List[str]:
+        """Extract policy numbers."""
+        matches = re.findall(self.POLICY_NUMBER_PATTERN, message, re.IGNORECASE)
+        return list(set(matches))
+    
+    def _extract_order_numbers(self, message: str) -> List[str]:
+        """Extract order numbers."""
+        matches = re.findall(self.ORDER_NUMBER_PATTERN, message, re.IGNORECASE)
+        return list(set(matches))
+    
     def _get_bank_from_ifsc(self, ifsc: str) -> Optional[str]:
         """Get bank name from IFSC code prefix."""
         bank_codes = {
@@ -276,3 +380,9 @@ def extract_intelligence(message: str) -> Dict:
     """Convenience function to extract intelligence from a message."""
     result = extractor.extract_all(message)
     return result.to_dict()
+
+
+def extract_intelligence_camel(message: str) -> Dict:
+    """Extract intelligence with camelCase keys for evaluation system."""
+    result = extractor.extract_all(message)
+    return result.to_camel_dict()

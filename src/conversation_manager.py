@@ -4,13 +4,15 @@ Manages honeypot conversation state and orchestrates detection, response, and ex
 """
 
 import uuid
+import time
 from datetime import datetime
 from typing import Dict, List, Optional
 from dataclasses import dataclass, field, asdict
 
 from src.detection import analyze_message
-from src.extraction import extract_intelligence
+from src.extraction import extract_intelligence, extract_intelligence_camel
 from src.agent import PersonaEngine, create_persona
+from src.agent.llm_engine import extract_intelligence_with_llm
 from src.mock import MockScammer, create_mock_scammer
 
 
@@ -28,10 +30,12 @@ class Conversation:
     """Represents a complete honeypot conversation."""
     conversation_id: str
     started_at: str
+    started_at_epoch: float = 0.0  # epoch seconds for duration calculation
     scam_type: Optional[str] = None
     persona_type: Optional[str] = None
     messages: List[Message] = field(default_factory=list)
     aggregated_intelligence: Dict = field(default_factory=dict)
+    aggregated_intelligence_camel: Dict = field(default_factory=dict)
     is_active: bool = True
     scam_confidence: float = 0.0
     
@@ -89,7 +93,8 @@ class ConversationManager:
         
         conversation = Conversation(
             conversation_id=conv_id,
-            started_at=now
+            started_at=now,
+            started_at_epoch=time.time()
         )
         
         # Analyze the message
@@ -111,6 +116,18 @@ class ConversationManager:
         
         # Aggregate intelligence
         self._aggregate_intelligence(conversation, intel)
+        
+        # Also build camelCase intel from message
+        intel_camel = extract_intelligence_camel(initial_message)
+        self._aggregate_intelligence_camel(conversation, intel_camel)
+
+        # LLM-assisted extraction — catches things regex misses
+        llm_intel = extract_intelligence_with_llm(
+            initial_message,
+            conversation_history=None  # No history yet on turn 1
+        )
+        if llm_intel:
+            self._aggregate_intelligence_camel(conversation, llm_intel)
         
         # Create persona for this conversation
         persona = create_persona(persona_type)
@@ -177,6 +194,22 @@ class ConversationManager:
         
         # Aggregate intelligence
         self._aggregate_intelligence(conversation, intel)
+        
+        # Also build camelCase intel
+        intel_camel = extract_intelligence_camel(scammer_message)
+        self._aggregate_intelligence_camel(conversation, intel_camel)
+
+        # LLM-assisted extraction — passes full conversation context for richer extraction
+        conv_history_for_llm = [
+            {"sender": m.sender, "text": m.content}
+            for m in conversation.messages[:-1]  # exclude current (already in message)
+        ]
+        llm_intel = extract_intelligence_with_llm(
+            scammer_message,
+            conversation_history=conv_history_for_llm
+        )
+        if llm_intel:
+            self._aggregate_intelligence_camel(conversation, llm_intel)
         
         # Get persona and generate response
         persona = self.personas.get(conversation_id)
@@ -313,11 +346,85 @@ class ConversationManager:
         """Aggregate extracted intelligence into conversation."""
         agg = conversation.aggregated_intelligence
         
-        for key in ["bank_accounts", "upi_ids", "phishing_links", "phone_numbers", "emails"]:
+        for key in ["bank_accounts", "upi_ids", "phishing_links", "phone_numbers", "emails", "case_ids", "policy_numbers", "order_numbers"]:
             if key not in agg:
                 agg[key] = []
             if key in intel:
                 agg[key].extend(intel[key])
+    
+    def _aggregate_intelligence_camel(self, conversation: Conversation, intel_camel: Dict):
+        """Aggregate extracted intelligence in camelCase format."""
+        agg = conversation.aggregated_intelligence_camel
+        
+        for key in ["phoneNumbers", "bankAccounts", "upiIds", "phishingLinks", "emailAddresses", "caseIds", "policyNumbers", "orderNumbers"]:
+            if key not in agg:
+                agg[key] = []
+            if key in intel_camel:
+                agg[key].extend(intel_camel[key])
+        
+        # Deduplicate
+        for key in agg:
+            agg[key] = list(set(agg[key])) if isinstance(agg[key], list) else agg[key]
+    
+    def get_final_output(self, conversation_id: str) -> Optional[Dict]:
+        """Generate finalOutput JSON conforming to the evaluation PDF spec."""
+        conversation = self.conversations.get(conversation_id)
+        if not conversation:
+            return None
+        
+        # Calculate engagement duration
+        duration_seconds = int(time.time() - conversation.started_at_epoch) if conversation.started_at_epoch else 0
+        
+        # Count messages
+        total_messages = len(conversation.messages)
+        
+        # Build final output
+        return {
+            "sessionId": conversation_id,
+            "scamDetected": bool(conversation.scam_type) or conversation.scam_confidence >= 30.0,
+            "totalMessagesExchanged": total_messages,
+            "engagementDurationSeconds": duration_seconds,
+            "extractedIntelligence": conversation.aggregated_intelligence_camel or {
+                "phoneNumbers": [],
+                "bankAccounts": [],
+                "upiIds": [],
+                "phishingLinks": [],
+                "emailAddresses": [],
+                "caseIds": [],
+                "policyNumbers": [],
+                "orderNumbers": []
+            },
+            "agentNotes": self._generate_agent_notes(conversation),
+            "scamType": conversation.scam_type or "unknown",
+            "confidenceLevel": min(conversation.scam_confidence / 100.0, 1.0) if conversation.scam_confidence > 1 else conversation.scam_confidence
+        }
+    
+    def _generate_agent_notes(self, conversation: Conversation) -> str:
+        """Generate summary notes for finalOutput."""
+        notes = []
+        if conversation.scam_type:
+            notes.append(f"Detected {conversation.scam_type} scam attempt.")
+        else:
+            notes.append("Potential scam activity detected.")
+        
+        intel = conversation.aggregated_intelligence_camel or {}
+        extracted = []
+        if intel.get("phoneNumbers"):
+            extracted.append(f"{len(intel['phoneNumbers'])} phone number(s)")
+        if intel.get("bankAccounts"):
+            extracted.append(f"{len(intel['bankAccounts'])} bank account(s)")
+        if intel.get("upiIds"):
+            extracted.append(f"{len(intel['upiIds'])} UPI ID(s)")
+        if intel.get("phishingLinks"):
+            extracted.append(f"{len(intel['phishingLinks'])} phishing link(s)")
+        if intel.get("emailAddresses"):
+            extracted.append(f"{len(intel['emailAddresses'])} email(s)")
+        
+        if extracted:
+            notes.append(f"Extracted: {', '.join(extracted)}.")
+        
+        notes.append(f"Engaged for {len(conversation.messages)} messages.")
+        return " ".join(notes)
 
 
 # Create default instance
