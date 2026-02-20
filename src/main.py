@@ -515,7 +515,18 @@ async def honeypot_endpoint(
                 "emails": []
             },
             "honeypot_response": f"I'm having trouble understanding. Can you repeat that?",
-            "conversation_active": True
+            "conversation_active": True,
+            "finalOutput": {
+                "sessionId": conv_id if 'conv_id' in locals() else "error",
+                "scamDetected": False,
+                "extractedIntelligence": {
+                    "phoneNumbers": [],
+                    "bankAccounts": [],
+                    "upiIds": [],
+                    "phishingLinks": [],
+                    "emailAddresses": []
+                }
+            }
         }
 
 
